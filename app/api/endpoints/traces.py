@@ -68,6 +68,14 @@ def parse_yaml_data(resp_text: str) -> List[Dict[str, Any]]:
         logger.warning(f"Error parsing YAML content: {e}")
         return []
 
+def to_str(val: Any) -> str:
+    """Safely convert any object (like datetime, int, float) to a string."""
+    if val is None:
+        return ""
+    if hasattr(val, "isoformat"):
+        return val.isoformat()
+    return str(val)
+
 def parse_metadata(resp_text: str) -> Dict[str, str]:
     """Helper to extract metadata tags from MCP tool response."""
     metadata = {}
@@ -111,7 +119,7 @@ def get_traces(query: str = "service:*", from_time: str = "now-1h"):
         # Group spans by traceid to summarize traces
         traces_map: Dict[str, List[Dict[str, Any]]] = {}
         for span in spans_data:
-            tid = span.get("traceid")
+            tid = to_str(span.get("traceid"))
             if tid:
                 if tid not in traces_map:
                     traces_map[tid] = []
@@ -124,13 +132,13 @@ def get_traces(query: str = "service:*", from_time: str = "now-1h"):
             try:
                 sorted_spans = sorted(
                     trace_spans,
-                    key=lambda s: s.get("starttimestamp", "") or ""
+                    key=lambda s: to_str(s.get("starttimestamp", ""))
                 )
             except Exception:
                 sorted_spans = trace_spans
 
             # Try to find a span with parentid == "0", otherwise fallback to earliest span
-            root_span = next((s for s in sorted_spans if s.get("parentid") == "0"), sorted_spans[0])
+            root_span = next((s for s in sorted_spans if to_str(s.get("parentid")) == "0"), sorted_spans[0])
 
             # Determine overall trace status (error if any span contains error status)
             trace_status = "ok"
@@ -168,7 +176,7 @@ def get_traces(query: str = "service:*", from_time: str = "now-1h"):
                 service=root_span.get("service") or "unknown",
                 operation=root_span.get("operationname") or "operation",
                 resource=root_span.get("resourcename") or "resource",
-                timestamp=root_span.get("starttimestamp") or "",
+                timestamp=to_str(root_span.get("starttimestamp")),
                 duration_ms=round(duration_ms, 2),
                 status=trace_status,
                 span_count=len(trace_spans)
@@ -228,13 +236,13 @@ def get_trace_detail(trace_id: str):
                 status = "error"
 
             spans.append(TraceSpan(
-                span_id=s.get("span_id") or "",
-                parent_id=s.get("parent_id") or "0",
+                span_id=to_str(s.get("span_id")),
+                parent_id=to_str(s.get("parent_id") or "0"),
                 service=s.get("service") or "unknown",
                 name=s.get("name") or "operation",
                 resource=s.get("resource") or "resource",
-                start_time=s.get("start_time") or "",
-                end_time=s.get("end_time") or "",
+                start_time=to_str(s.get("start_time")),
+                end_time=to_str(s.get("end_time")),
                 duration_ms=float(s.get("duration_ms") or 0.0),
                 status=status,
                 meta=s.get("meta") or {}
