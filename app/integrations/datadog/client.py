@@ -10,9 +10,9 @@ class DatadogClient(BaseDatadogClient):
     """
 
     def __init__(self):
-        self.api_key = settings.DATADOG_API_KEY
-        self.app_key = settings.DATADOG_APP_KEY
-        self.mcp_url = settings.MCP_SERVER_URL
+        self.api_key = settings.datadog_api_key_val
+        self.app_key = settings.datadog_app_key_val
+        self.mcp_url = settings.mcp_server_url_val
 
     def get_service_metrics(self, service_name: str, hours: int = 1) -> Dict[str, Any]:
         # Future implementation using Datadog client/MCP

@@ -28,7 +28,22 @@ class Settings(BaseSettings):
     DATADOG_API_KEY: str = Field(default="")
     DATADOG_APP_KEY: str = Field(default="")
     
-    MCP_SERVER_URL: str = Field(default="")
+    MCP_SERVER_URL: str = Field(default="https://mcp.datadoghq.com/v1/mcp?toolsets=all")
+
+    @property
+    def datadog_api_key_val(self) -> str:
+        return self.DD_API_KEY or self.DATADOG_API_KEY or os.environ.get("DD_API_KEY", "")
+
+    @property
+    def datadog_app_key_val(self) -> str:
+        return self.DD_APP_KEY or self.DATADOG_APP_KEY or os.environ.get("DD_APP_KEY", "")
+
+    @property
+    def mcp_server_url_val(self) -> str:
+        val = self.MCP_SERVER_URL or os.environ.get("MCP_SERVER_URL", "")
+        if not val or val.strip() == "":
+            return "https://mcp.datadoghq.com/v1/mcp?toolsets=all"
+        return val
 
     class Config:
         env_file = ".env"

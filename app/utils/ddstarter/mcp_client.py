@@ -11,9 +11,9 @@ class DatadogMCPClient:
     Client for Datadog MCP Server to fetch metrics, logs, spans, and monitors.
     """
     def __init__(self, mcp_url: str = None, api_key: str = None, app_key: str = None):
-        self.mcp_url = mcp_url or "https://mcp.datadoghq.com/api/unstable/mcp-server/mcp"
-        self.api_key = api_key or settings.DD_API_KEY
-        self.app_key = app_key or settings.DD_APP_KEY
+        self.mcp_url = mcp_url or settings.mcp_server_url_val
+        self.api_key = api_key or settings.datadog_api_key_val
+        self.app_key = app_key or settings.datadog_app_key_val
         self._id = 0
         self._session_id = None
         
