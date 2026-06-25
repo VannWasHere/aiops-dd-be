@@ -1,10 +1,12 @@
 import json
+import re
 import logging
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 import boto3
+import yaml
 import requests as http_requests
 
 from app.core.config import settings
@@ -87,7 +89,15 @@ def auto_detect_errors(db: Session = Depends(get_db)):
     # Fetch error spans from MCP
     try:
         raw = _mcp_call("search_datadog_spans", {"query": "status:error", "from": "now-1h"})
-        spans = json.loads(raw) if raw else []
+        # Parse YAML_DATA from MCP response
+        yaml_match = re.search(r'<YAML_DATA>(.*?)</YAML_DATA>', raw, re.DOTALL)
+        if yaml_match:
+            spans = yaml.safe_load(yaml_match.group(1).strip()) or []
+        else:
+            try:
+                spans = json.loads(raw) if raw else []
+            except (json.JSONDecodeError, TypeError):
+                spans = yaml.safe_load(raw) if raw else []
         if not isinstance(spans, list):
             spans = spans.get("spans", spans.get("data", []))
     except Exception as e:
@@ -101,13 +111,22 @@ def auto_detect_errors(db: Session = Depends(get_db)):
     service_errors: dict = {}
     detected: List[DetectedError] = []
     for span in spans[:50]:
-        svc = span.get("service", span.get("serviceName", "unknown"))
-        meta = span.get("meta", span.get("attributes", {}))
-        err_msg = meta.get("error.message", meta.get("error.msg", span.get("error", {}).get("message", "")))
-        op = span.get("operationname", span.get("name", ""))
-        resource = span.get("resourcename", span.get("resource", ""))
-        tid = str(span.get("traceid", span.get("trace_id", "")))
-        ts = str(span.get("starttimestamp", span.get("start", "")))
+        svc = span.get("service", "unknown")
+        custom = span.get("custom", {})
+        err_msg = ""
+        if isinstance(custom, dict):
+            err = custom.get("error", {})
+            if isinstance(err, dict):
+                err_msg = err.get("message", err.get("msg", ""))
+            # Also check http status code
+            http_info = custom.get("http", {})
+            if isinstance(http_info, dict) and not err_msg:
+                status_code = http_info.get("status_code", "")
+                err_msg = f"HTTP {status_code}" if status_code else ""
+        op = span.get("resourcename", span.get("operationname", ""))
+        resource = span.get("resourcename", "")
+        tid = str(span.get("traceid", ""))
+        ts = str(span.get("starttimestamp", ""))
 
         detected.append(DetectedError(trace_id=tid, service=svc, operation=op, resource=resource, timestamp=ts, error_message=str(err_msg)[:200]))
 
