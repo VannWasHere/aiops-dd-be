@@ -7,7 +7,7 @@ class ChatMessageBase(BaseModel):
     content: str
 
 class ChatMessageCreate(ChatMessageBase):
-    pass
+    model_id: Optional[str] = None
 
 class ChatMessageOut(ChatMessageBase):
     id: uuid.UUID
